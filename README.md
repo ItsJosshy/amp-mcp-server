@@ -119,10 +119,13 @@ npm ci
 npm run build
 test -f .env
 chmod 600 .env
+repo="$PWD"
+node_bin="$(command -v node)"
+test -n "$node_bin"
 
 codex mcp add amp \
-  --env DOTENV_CONFIG_PATH="$PWD/.env" \
-  -- node "$PWD/dist/index.js"
+  --env DOTENV_CONFIG_PATH="$repo/.env" \
+  -- "$node_bin" "$repo/dist/index.js"
 ```
 
 From the repository root in Windows PowerShell:
@@ -132,19 +135,31 @@ npm ci
 npm run build
 if (-not (Test-Path .env)) { throw "Create and configure .env first" }
 $repo = (Get-Location).Path
+$node = (Get-Command node -ErrorAction Stop).Source
 
 codex mcp add amp `
   --env "DOTENV_CONFIG_PATH=$repo\.env" `
-  -- node "$repo\dist\index.js"
+  -- "$node" "$repo\dist\index.js"
 ```
 
-`DOTENV_CONFIG_PATH` contains only the path to the secret file; it does not copy AMP credentials into Codex's `config.toml`. Run `codex mcp list` to confirm that `amp` is registered. Then start a new Codex session, restart the IDE extension, or restart the desktop app. In the Codex terminal UI, use `/mcp` to confirm that the server is connected.
+Use an absolute Node executable path as shown above. Graphical Codex clients and long-running Codex background services may have a different `PATH` from the terminal where Node was installed, so registering only `node` can fail even when `node --version` works in your shell.
+
+`DOTENV_CONFIG_PATH` contains only the path to the secret file; it does not copy AMP credentials into Codex's `config.toml`. Run `codex mcp list` to confirm that `amp` is registered. If the listing shows `Auth: Unsupported` for this stdio server, that only means transport-level OAuth or bearer-token authentication does not apply; AMP authentication is handled by the MCP server using `.env`.
+
+Close active Codex sessions after changing MCP configuration. Restart the IDE extension or desktop app. If Codex reports that its background app server is running, restart that service from a separate terminal before opening a new session:
+
+```bash
+codex app-server daemon version
+codex app-server daemon restart
+```
+
+In the Codex terminal UI, use `/mcp` to confirm that the server is connected.
 
 Codex stores global MCP settings in `~/.codex/config.toml`. Trusted projects may instead use `.codex/config.toml`. For manual configuration, use absolute paths:
 
 ```toml
 [mcp_servers.amp]
-command = "node"
+command = "/absolute/path/to/node"
 args = ["/absolute/path/to/amp-mcp-server/dist/index.js"]
 cwd = "/absolute/path/to/amp-mcp-server"
 enabled = true
@@ -154,7 +169,7 @@ tool_timeout_sec = 120
 default_tools_approval_mode = "writes"
 ```
 
-With `cwd` set to the repository root, `dotenv` loads `.env` automatically. On Windows, TOML basic strings require escaped backslashes, such as `cwd = "C:\\src\\amp-mcp-server"`; forward-slash paths are also acceptable to Node. `default_tools_approval_mode = "writes"` lets annotated read-only tools run automatically while asking before tools that Codex considers mutating. The MCP server's own `AMP_ALLOW_*` gates still apply and remain the final authority.
+Replace the Node placeholder with the absolute result of `command -v node` on Linux or `(Get-Command node).Source` in PowerShell. With `cwd` set to the repository root, `dotenv` loads `.env` automatically. On Windows, TOML basic strings require escaped backslashes, such as `command = "C:\\Program Files\\nodejs\\node.exe"` and `cwd = "C:\\src\\amp-mcp-server"`; forward-slash paths are also acceptable to Node. `default_tools_approval_mode = "writes"` lets annotated read-only tools run automatically while asking before tools that Codex considers mutating. The MCP server's own `AMP_ALLOW_*` gates still apply and remain the final authority.
 
 Once connected, ask Codex explicitly when AMP is relevant, for example:
 
