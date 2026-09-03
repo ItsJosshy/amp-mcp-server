@@ -15,15 +15,39 @@ MCP tools and resources depend on an `AmpProvider` interface. `Amp2Provider` own
 ## Requirements
 
 - Node.js 20 or newer (the Docker image uses Node 24)
+- Linux or Windows for the supported native host configurations
 - An AMP 2 ADS/controller endpoint
 - A dedicated AMP account with the least permissions needed
 - Optional: local `ampinstmgr` when the server runs on the AMP host
 
+## Platform support
+
+The MCP transports and AMP HTTP provider are supported on Linux and Windows. They may connect to an AMP controller on the same machine or a remote host. The optional `ampinstmgr` adapter is host-local and has additional identity requirements.
+
+| Platform | Default `ampinstmgr` path | Required process identity |
+|---|---|---|
+| Linux | `/usr/bin/ampinstmgr` | The AMP service account that owns the instance store (commonly `amp`) |
+| Windows | `C:\Program Files\CubeCoders Limited\AMP\ampinstmgr.exe` | A Windows account authorized to access and manage the AMP installation |
+
+Paths containing spaces are passed directly to Node's process API; no shell quoting is needed. Set `AMPINSTMGR_PATH` when AMP is installed elsewhere. Do not enable CLI support for a remote AMP controller: CLI operations always affect the MCP server's own host.
+
 ## Install and verify
+
+Linux:
 
 ```bash
 npm install
 cp .env.example .env
+# edit .env
+npm run check
+npm start
+```
+
+Windows PowerShell:
+
+```powershell
+npm install
+Copy-Item .env.example .env
 # edit .env
 npm run check
 npm start
@@ -43,7 +67,7 @@ npm run typecheck
 
 Create a dedicated non-human account in AMP. Grant read permissions for ADS targets/instances, status, settings, console and the plugins you intend to use. Add mutation permissions only when the corresponding MCP risk flags are enabled. FileManager, LocalFileBackup, Scheduler and user-management permissions are separate in AMP; inspect them with `amp_get_permissions`.
 
-AMP may require a pre-created service/remembered-login token for unattended accounts using MFA. Supply it as `AMP_LOGIN_TOKEN`, not as a tool input. Do not put credentials in source control.
+AMP may require a pre-created service/remembered-login token for unattended accounts using MFA. Supply the complete value displayed by AMP (including its `username:` prefix, when present) as `AMP_LOGIN_TOKEN`, not as a tool input. The client safely normalizes the prefix before login. AMP can bind tokens to the source IP, so create the token from the same host/network path that the MCP server will use. Do not put credentials in source control.
 
 ## Configuration
 
@@ -66,7 +90,7 @@ AMP may require a pre-created service/remembered-login token for unattended acco
 | `AMP_ENABLE_GENERIC_API` | `true` | Register/use live API discovery path |
 | `AMP_GENERIC_API_ALLOW_WRITES` | `false` | Additional gate for generic mutations |
 | `AMP_ENABLE_CLI` | `false` | Allow fixed local ampinstmgr commands |
-| `AMPINSTMGR_PATH` | `/usr/bin/ampinstmgr` | Exact executable path |
+| `AMPINSTMGR_PATH` | platform default | Exact executable path; Linux and Windows defaults are listed above |
 | `AMP_CLI_TIMEOUT_MS` | `60000` | CLI timeout |
 | `AMP_LOG_LEVEL` | `info` | Pino JSON log level |
 | `AMP_AUDIT_LOG` | stderr | Optional JSONL audit file |
@@ -81,6 +105,73 @@ AMP may require a pre-created service/remembered-login token for unattended acco
 ## MCP client configuration
 
 Copy [examples/mcp-client.json](examples/mcp-client.json) and replace the absolute path and secrets. This layout works for clients that use the standard `mcpServers` stdio configuration, including Claude Desktop and Cursor. For clients with a CLI, configure the same executable and environment.
+
+Use normal JSON escaping for Windows paths, for example `C:\\src\\amp-mcp-server\\dist\\index.js`. The MCP client process identity also becomes the `ampinstmgr` identity when CLI support is enabled.
+
+### Install in Codex
+
+Codex CLI, the Codex IDE extension and the ChatGPT desktop app share MCP configuration on the same Codex host. The recommended local setup is a stdio server registered with the Codex CLI. Build the server and keep its AMP credentials only in this repository's ignored `.env` file.
+
+From the repository root on Linux:
+
+```bash
+npm ci
+npm run build
+test -f .env
+chmod 600 .env
+
+codex mcp add amp \
+  --env DOTENV_CONFIG_PATH="$PWD/.env" \
+  -- node "$PWD/dist/index.js"
+```
+
+From the repository root in Windows PowerShell:
+
+```powershell
+npm ci
+npm run build
+if (-not (Test-Path .env)) { throw "Create and configure .env first" }
+$repo = (Get-Location).Path
+
+codex mcp add amp `
+  --env "DOTENV_CONFIG_PATH=$repo\.env" `
+  -- node "$repo\dist\index.js"
+```
+
+`DOTENV_CONFIG_PATH` contains only the path to the secret file; it does not copy AMP credentials into Codex's `config.toml`. Run `codex mcp list` to confirm that `amp` is registered. Then start a new Codex session, restart the IDE extension, or restart the desktop app. In the Codex terminal UI, use `/mcp` to confirm that the server is connected.
+
+Codex stores global MCP settings in `~/.codex/config.toml`. Trusted projects may instead use `.codex/config.toml`. For manual configuration, use absolute paths:
+
+```toml
+[mcp_servers.amp]
+command = "node"
+args = ["/absolute/path/to/amp-mcp-server/dist/index.js"]
+cwd = "/absolute/path/to/amp-mcp-server"
+enabled = true
+required = false
+startup_timeout_sec = 15
+tool_timeout_sec = 120
+default_tools_approval_mode = "writes"
+```
+
+With `cwd` set to the repository root, `dotenv` loads `.env` automatically. On Windows, TOML basic strings require escaped backslashes, such as `cwd = "C:\\src\\amp-mcp-server"`; forward-slash paths are also acceptable to Node. `default_tools_approval_mode = "writes"` lets annotated read-only tools run automatically while asking before tools that Codex considers mutating. The MCP server's own `AMP_ALLOW_*` gates still apply and remain the final authority.
+
+Once connected, ask Codex explicitly when AMP is relevant, for example:
+
+- `Use the amp MCP to list instances and summarize their current status.`
+- `Use the amp MCP to inspect the capabilities and settings for <instance>.`
+- `Dry-run an AMP restart for <instance>; do not execute it.`
+
+Codex can then select the appropriate `amp_*` tools when needed. Read operations work with the default policy. Actual mutations require both Codex approval and the corresponding server-side flags in `.env`. Keep `AMP_ENABLE_CLI=false` unless Codex itself is running under the AMP-authorized operating-system account.
+
+After changing TypeScript source, run `npm run build` and restart the Codex MCP connection so it launches the updated `dist/index.js`. Useful diagnostics are:
+
+```bash
+codex mcp list
+codex mcp --help
+```
+
+See the official [Codex MCP documentation](https://developers.openai.com/codex/mcp/) for current configuration options and client-specific controls.
 
 To inspect interactively:
 
@@ -157,7 +248,7 @@ The multi-stage image runs as UID 10001. Host-local `ampinstmgr` is normally ina
 - self-signed TLS: install the CA in the host trust store. Use `AMP_VERIFY_TLS=false` only as an explicit temporary choice.
 - target/instance unavailable: check ADS pairing/network and use `amp_health`, `amp_list_targets`, then `amp_list_instances`.
 - no console entries: `Core/GetUpdates` is delta-oriented per session; call after events occur.
-- CLI failure: ensure `AMP_ENABLE_CLI=true`, exact binary path, correct OS user, and remember CLI creation is deprecated upstream.
+- CLI failure: ensure `AMP_ENABLE_CLI=true`, the executable exists at the platform default or `AMPINSTMGR_PATH`, and the process runs as the correct Linux service account or authorized Windows account. Remember CLI creation is deprecated upstream.
 
 ## Future AMP versions
 

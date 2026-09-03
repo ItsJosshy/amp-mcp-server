@@ -100,4 +100,4 @@ Read operations: `amp_cli_info`, `amp_cli_list_instances`, `amp_cli_instance_inf
 
 Host-privileged operations: `amp_cli_start`, `amp_cli_stop`, `amp_cli_restart`, `amp_cli_upgrade`, `amp_cli_reconfigure`, `amp_cli_rebind`, and `amp_cli_delete_instance`.
 
-All require `AMP_ENABLE_CLI=true`; mutations also require the host-privileged policy. The server must run on the AMP host as an OS account authorized to manage AMP.
+All require `AMP_ENABLE_CLI=true`; mutations also require the host-privileged policy. The server must run on the AMP host as an OS account authorized to manage AMP. On Linux this is normally the account that owns the AMP instance store (commonly `amp`). On Windows use an account authorized for the AMP installation and its instance-manager registry/store. The executable defaults to `/usr/bin/ampinstmgr` on Linux and `C:\Program Files\CubeCoders Limited\AMP\ampinstmgr.exe` on Windows; override `AMPINSTMGR_PATH` for non-default installations.

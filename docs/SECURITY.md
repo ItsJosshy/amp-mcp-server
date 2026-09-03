@@ -4,6 +4,8 @@
 
 The AMP credential normally grants broad administrative power. Create a dedicated AMP user with only the permissions required by enabled tools. Stdio trusts the launching OS process. HTTP additionally needs network TLS at a reverse proxy and a long random `MCP_HTTP_BEARER_TOKEN` (or a local-only bind).
 
+ADS-managed instance sessions use short-lived grants returned by `ADSModule/ManageInstance`. These grants remain inside the HTTP client and are never returned through MCP tools, resources, logs or audit records.
+
 TLS verification is on by default. `AMP_VERIFY_TLS=false` changes only this client's dedicated connection pool and emits a warning; it never changes Node's process-wide TLS behavior.
 
 ## Risk gates
@@ -22,7 +24,9 @@ Dry runs validate and describe an action without needing the mutation gate. Gene
 
 Normal file tools reject absolute paths, Windows drive roots, backslashes, `.`/`..`, NULs and home expansion. AMP's FileManager API then enforces the instance root. Reads/writes are size-limited. Text is strict UTF-8; binary uses base64. Expected MD5 guards prevent concurrent overwrite. File content is redacted from audit logs.
 
-There is no arbitrary host execution tool. `ampinstmgr` uses `spawn(path, args, {shell:false})`, fixed command builders, argument validation, a minimal environment, output limits and timeouts. It is disabled by default and only operates on the local host.
+There is no arbitrary host execution tool. `ampinstmgr` uses `spawn(path, args, {shell:false})`, fixed command builders, argument validation, a minimal environment, output limits and timeouts. On Windows, only the system variables needed to launch a native executable are added to that minimal environment. It is disabled by default and only operates on the local host.
+
+CLI authorization comes from the MCP server's OS identity, not from `AMP_USERNAME`. On Linux, run CLI-enabled deployments as the AMP-owning service account rather than broadening instance-store permissions. On Windows, use a dedicated service account authorized for AMP and avoid running an interactive MCP client as an unrestricted administrator. Prefer the authenticated HTTP provider whenever host-local access is unnecessary.
 
 ## Audit records
 

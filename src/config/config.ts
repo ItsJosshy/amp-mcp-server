@@ -21,7 +21,7 @@ const schema = z.object({
   AMP_ENABLE_GENERIC_API: bool(true),
   AMP_GENERIC_API_ALLOW_WRITES: bool(false),
   AMP_ENABLE_CLI: bool(false),
-  AMPINSTMGR_PATH: z.string().default("/usr/bin/ampinstmgr"),
+  AMPINSTMGR_PATH: z.string().min(1).optional(),
   AMP_CLI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(600_000).default(60_000),
   AMP_LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   AMP_AUDIT_LOG: z.string().optional(),
@@ -60,7 +60,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     maxFileBytes: v.AMP_MAX_FILE_BYTES, allowWrites: v.AMP_ALLOW_WRITES, allowDisruptive: v.AMP_ALLOW_DISRUPTIVE,
     allowDestructive: v.AMP_ALLOW_DESTRUCTIVE, allowHostPrivileged: v.AMP_ALLOW_HOST_PRIVILEGED,
     enableGenericApi: v.AMP_ENABLE_GENERIC_API, genericApiAllowWrites: v.AMP_GENERIC_API_ALLOW_WRITES,
-    enableCli: v.AMP_ENABLE_CLI, ampinstmgrPath: v.AMPINSTMGR_PATH, cliTimeoutMs: v.AMP_CLI_TIMEOUT_MS,
+    enableCli: v.AMP_ENABLE_CLI, ampinstmgrPath: v.AMPINSTMGR_PATH ?? defaultAmpInstMgrPath(), cliTimeoutMs: v.AMP_CLI_TIMEOUT_MS,
     logLevel: v.AMP_LOG_LEVEL, transport: v.MCP_TRANSPORT, httpHost: v.MCP_HTTP_HOST, httpPort: v.MCP_HTTP_PORT,
     httpAllowedHosts: csv(v.MCP_HTTP_ALLOWED_HOSTS), httpAllowedOrigins: csv(v.MCP_HTTP_ALLOWED_ORIGINS), httpAllowInsecureRemote: v.MCP_HTTP_ALLOW_INSECURE_REMOTE
   };
@@ -70,3 +70,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 }
 
 function csv(value: string): string[] { return value.split(",").map((item) => item.trim()).filter(Boolean); }
+
+export function defaultAmpInstMgrPath(platform: NodeJS.Platform = process.platform): string {
+  if (platform === "win32") return String.raw`C:\Program Files\CubeCoders Limited\AMP\ampinstmgr.exe`;
+  if (platform === "linux") return "/usr/bin/ampinstmgr";
+  return "ampinstmgr";
+}

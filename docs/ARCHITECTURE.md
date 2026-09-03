@@ -21,7 +21,7 @@ MCP stdio / stateless HTTP
 
 ## AMP 2 request flow
 
-The thin client posts only to the configured origin and fixed `API/{module}/{method}` or `API/ADSModule/Servers/{instanceId}/API/{module}/{method}` paths. Module, method and instance segments are syntactically constrained. It creates one controller session lazily, then one proxied session per managed instance. Concurrent callers share in-flight login promises. A 401 or session-shaped AMP error evicts the relevant session, logs in again, and retries the original call once.
+The thin client posts only to the configured origin and fixed `API/{module}/{method}` or `API/ADSModule/Servers/{instanceId}/API/{module}/{method}` paths. Module, method and instance segments are syntactically constrained. It creates one controller session lazily. Before opening a proxied session, it uses the authenticated controller's `ADSModule/ManageInstance` method to obtain AMP's short-lived per-instance login grant; controller credentials and service tokens are never reused as instance grants. Concurrent callers share in-flight login promises. A 401 or session-shaped AMP error evicts the relevant session, logs in again, and retries the original call once.
 
 Only reads marked idempotent receive bounded transport retries. Mutations are never blindly retried because their outcome can be unknown after a network failure.
 
@@ -32,6 +32,12 @@ Only reads marked idempotent receive bounded transport retries. Mutations are ne
 ## Transports
 
 Stdio is primary. Logs go to stderr so stdout remains MCP-only. Optional HTTP is stateless Streamable HTTP. It refuses an unauthenticated all-interface bind unless explicitly overridden. AMP credentials are server-side and are not accepted as tool parameters.
+
+## Operating systems
+
+The TypeScript server, MCP transports and fixed-origin AMP HTTP client are platform-neutral and supported on Linux and Windows. Host filesystem access is not used for normal AMP operations.
+
+The optional `ampinstmgr` adapter resolves a native default executable path for Linux or Windows and invokes it directly with `shell: false`. It passes only a small process environment; Windows system variables required to start native executables are retained. The adapter always inherits the MCP server's OS security identity, so deployments must run it as the AMP-owning Linux account or an authorized Windows account. Platform-specific service installation and privilege assignment remain operator concerns.
 
 ## Extension points
 

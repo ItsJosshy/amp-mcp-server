@@ -20,7 +20,7 @@ export class AmpInstMgrAdapter {
       return input.instanceName;
     };
     switch (operation) {
-      case "version": return ["--Version"];
+      case "version": return ["-version"];
       case "list": return ["--ShowInstancesList"];
       case "info": return ["--ShowInstanceInfo", requireName()];
       case "ports": return input.instanceName ? ["--ShowInstancePorts", requireName()] : ["--ShowAllInstancePorts"];
@@ -42,7 +42,7 @@ export class AmpInstMgrAdapter {
     if (!this.config.enableCli) throw new AmpError("AMP_SAFETY_POLICY_DENIED", "ampinstmgr support is disabled; set AMP_ENABLE_CLI=true explicitly");
     const args = this.buildArgs(operation, input); const started = Date.now();
     return new Promise((resolve, reject) => {
-      const child = spawn(this.config.ampinstmgrPath, args, { shell: false, stdio: ["ignore", "pipe", "pipe"], env: { PATH: process.env.PATH ?? "/usr/local/bin:/usr/bin:/bin" } });
+      const child = spawn(this.config.ampinstmgrPath, args, { shell: false, stdio: ["ignore", "pipe", "pipe"], env: cliEnvironment() });
       let stdout = "", stderr = "", timedOut = false;
       child.stdout.setEncoding("utf8"); child.stderr.setEncoding("utf8");
       child.stdout.on("data", (chunk: string) => { stdout += chunk; }); child.stderr.on("data", (chunk: string) => { stderr += chunk; });
@@ -70,3 +70,15 @@ function redactArgs(args: string[]): string[] { return args.map((arg, index) => 
 function truncate(value: string): string { return value.length > 1_000_000 ? `${value.slice(0, 1_000_000)}\n[TRUNCATED]` : value; }
 function sensitiveValues(args: string[]): string[] { return args.filter((_arg, index) => index > 0 && /password|secret|token/i.test(args[index - 1] ?? "")); }
 function redactText(text: string, secrets: string[]): string { return secrets.reduce((value, secret) => secret ? value.split(secret).join("[REDACTED]") : value, text); }
+
+export function cliEnvironment(env: NodeJS.ProcessEnv = process.env, platform: NodeJS.Platform = process.platform): NodeJS.ProcessEnv {
+  const result: NodeJS.ProcessEnv = {};
+  const copy = (key: string): void => { if (env[key]) result[key] = env[key]; };
+  if (platform === "win32") {
+    for (const key of ["SystemRoot", "WINDIR", "TEMP", "TMP", "PATHEXT"]) copy(key);
+    result.PATH = env.PATH ?? `${env.SystemRoot ?? String.raw`C:\Windows`}\\System32`;
+  } else {
+    result.PATH = env.PATH ?? "/usr/local/bin:/usr/bin:/bin";
+  }
+  return result;
+}
