@@ -2,7 +2,7 @@
 
 ## Project contract
 
-This repository is a strict TypeScript MCP server for CubeCoders AMP 2. Linux and Windows are first-class supported hosts. Node.js 20 or newer is required. Keep AMP 3 behavior behind a separate provider rather than silently changing AMP 2 semantics.
+This repository is a strict TypeScript MCP server for CubeCoders AMP 2. Linux and Windows are first-class supported hosts. Node.js 20.19+, 22.13+, or 24+ is required. Keep AMP 3 behavior behind a separate provider rather than silently changing AMP 2 semantics.
 
 Normal tools use the AMP HTTP API and must behave identically on Linux and Windows. The optional `ampinstmgr` adapter is host-local. Its platform defaults are `/usr/bin/ampinstmgr` on Linux and `C:\Program Files\CubeCoders Limited\AMP\ampinstmgr.exe` on Windows; `AMPINSTMGR_PATH` overrides either. Do not introduce POSIX-only shell commands, path parsing or permission assumptions into runtime code.
 
