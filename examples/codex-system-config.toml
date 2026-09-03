@@ -1,0 +1,15 @@
+# Merge this table into /etc/codex/config.toml on Unix.
+# This file contains no credentials. Adjust all absolute paths for the host.
+
+[mcp_servers.amp]
+command = "/usr/bin/node"
+args = ["/opt/amp-mcp-server/dist/index.js"]
+cwd = "/opt/amp-mcp-server"
+enabled = true
+required = false
+startup_timeout_sec = 15
+tool_timeout_sec = 120
+default_tools_approval_mode = "writes"
+
+[mcp_servers.amp.env]
+DOTENV_CONFIG_PATH = "/etc/amp-mcp-server/amp-mcp.env"
