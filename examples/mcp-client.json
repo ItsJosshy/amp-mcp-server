@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "amp": {
+      "command": "node",
+      "args": ["/absolute/path/to/amp-mcp-server/dist/index.js"],
+      "env": {
+        "AMP_URL": "https://amp.example.com/",
+        "AMP_USERNAME": "mcp-agent",
+        "AMP_PASSWORD": "replace-from-a-secret-store",
+        "AMP_VERIFY_TLS": "true",
+        "AMP_ALLOW_WRITES": "false"
+      }
+    }
+  }
+}
