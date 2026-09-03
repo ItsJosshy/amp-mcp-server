@@ -14,7 +14,7 @@ MCP tools and resources depend on an `AmpProvider` interface. `Amp2Provider` own
 
 ## Requirements
 
-- Node.js 20 or newer (the Docker image uses Node 24)
+- Node.js 20.19+, 22.13+, or 24+ (the Docker image uses Node 24)
 - Linux or Windows for the supported native host configurations
 - An AMP 2 ADS/controller endpoint
 - A dedicated AMP account with the least permissions needed
