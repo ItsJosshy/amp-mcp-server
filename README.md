@@ -155,7 +155,7 @@ codex app-server daemon restart
 
 In the Codex terminal UI, use `/mcp` to confirm that the server is connected.
 
-Codex stores global MCP settings in `~/.codex/config.toml`. Trusted projects may instead use `.codex/config.toml`. For manual configuration, use absolute paths:
+Codex stores user-global MCP settings in `$CODEX_HOME/config.toml`, normally `~/.codex/config.toml`. That entry is available in every Codex chat and project started by the same OS account. Trusted projects may override it with `.codex/config.toml`. For manual configuration, use absolute paths:
 
 ```toml
 [mcp_servers.amp]
@@ -170,6 +170,30 @@ default_tools_approval_mode = "writes"
 ```
 
 Replace the Node placeholder with the absolute result of `command -v node` on Linux or `(Get-Command node).Source` in PowerShell. With `cwd` set to the repository root, `dotenv` loads `.env` automatically. On Windows, TOML basic strings require escaped backslashes, such as `command = "C:\\Program Files\\nodejs\\node.exe"` and `cwd = "C:\\src\\amp-mcp-server"`; forward-slash paths are also acceptable to Node. `default_tools_approval_mode = "writes"` lets annotated read-only tools run automatically while asking before tools that Codex considers mutating. The MCP server's own `AMP_ALLOW_*` gates still apply and remain the final authority.
+
+#### All projects and multiple OS accounts
+
+The `codex mcp add` commands above write the current account's user-global configuration. Verify that scope from a directory outside this repository:
+
+```bash
+cd /tmp
+codex mcp get amp
+```
+
+On Unix, Codex also reads `/etc/codex/config.toml` as a lower-precedence system configuration. Use that file when every local Codex account, including a separately authenticated root account, should discover the AMP MCP. Merge [the system configuration example](examples/codex-system-config.toml) into `/etc/codex/config.toml`; do not overwrite unrelated existing settings.
+
+A shared installation should use:
+
+- a stable, absolute Node executable that every intended account can execute;
+- a stable server checkout/build that every intended account can traverse and read;
+- a separate environment file readable only by root or a dedicated AMP MCP operator group; and
+- an `/etc/codex/config.toml` that contains paths and policy only, never AMP credentials.
+
+The example assumes `/usr/bin/node`, `/opt/amp-mcp-server`, and `/etc/amp-mcp-server/amp-mcp.env`. Adjust all three paths together. Treat membership in the group that can read the environment file as AMP operator access. Keep `AMP_ENABLE_CLI=false` in a shared deployment unless the MCP process identity is deliberately authorized for the local AMP instance store.
+
+Each OS account must authenticate its own Codex client. Do not share another user's `auth.json`, use another user's entire `CODEX_HOME`, or rely on `sudo -E` to forward credentials. After installing or changing system configuration, close active Codex clients and restart each account's Codex app server or client before using `/mcp`.
+
+Windows Codex uses the account's `$CODEX_HOME/config.toml`; the official Codex documentation does not define a Windows equivalent of `/etc/codex/config.toml`. UAC elevation under the same Windows identity normally retains that user's configuration. A genuinely different Windows account needs its own global config entry and filesystem ACL access to the shared Node executable, server build, and protected environment file. When `AMP_ENABLE_CLI=true`, run Codex as the specific Windows service account authorized for AMP rather than granting broad access to every administrator.
 
 Once connected, ask Codex explicitly when AMP is relevant, for example:
 
@@ -186,7 +210,7 @@ codex mcp list
 codex mcp --help
 ```
 
-See the official [Codex MCP documentation](https://developers.openai.com/codex/mcp/) for current configuration options and client-specific controls.
+See the official [Codex MCP documentation](https://developers.openai.com/codex/mcp/) and [Codex configuration precedence](https://learn.chatgpt.com/docs/config-file/config-basic) for current configuration options, user-global settings, project overrides, and Unix system configuration.
 
 To inspect interactively:
 

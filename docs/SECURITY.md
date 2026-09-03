@@ -39,3 +39,11 @@ Every mutating tool records timestamp, tool, risk, redacted parameters, outcome 
 - Rotate the dedicated AMP password/token and MCP HTTP token.
 - Review dry runs before enabling destructive operations.
 - AMP can bind sessions to origin IP; configure reverse-proxy awareness and sticky routing correctly.
+
+## Shared Codex deployments
+
+A user-global Codex MCP entry belongs to one OS identity. Unix system configuration in `/etc/codex/config.toml` can advertise the server to multiple identities, but it does not grant access to the Node executable, server build, secret environment file or AMP instance store. Provision those permissions separately and narrowly.
+
+Keep AMP credentials out of Codex configuration. Point `DOTENV_CONFIG_PATH` at an environment file owned by root or a dedicated operator group and grant read access only to identities allowed to exercise the configured AMP permissions. Every account that can read that file can act as the configured AMP API user through this server.
+
+Do not share Codex authentication state between accounts. Elevated and service accounts should authenticate Codex independently. Prefer API-only mode for shared deployments. Enabling `ampinstmgr` binds every CLI call to the MCP server process identity; it does not impersonate the interactive user or the configured AMP API account.
