@@ -19,6 +19,8 @@ The provider targets AMP 2 and defaults to current bearer sessions. It is archit
 
 The authenticated local `Core/GetAPISpec` and `Core/GetSettingsSpec` are authoritative at runtime. This avoids assuming a community 2.6.2 snapshot still exactly describes a 2.8 module.
 
+Linux and Windows are supported MCP hosts. The HTTP provider has the same behavior on both. For optional local CLI calls, the defaults are `/usr/bin/ampinstmgr` on Linux and `C:\Program Files\CubeCoders Limited\AMP\ampinstmgr.exe` on Windows. CubeCoders documents the same CLI operations on both platforms, with a small number of explicitly Linux-only flags that this server does not use. The version probe uses the documented cross-platform `-version` flag.
+
 ## Authentication model
 
 `Core/Login(username,password,token,rememberMe)` returns a session ID. Since AMP 2.6.2, subsequent calls should send it as `Authorization: Bearer SESSION_ID`; body `SESSIONID` is deprecated. `token` can be a remembered/service-login token or second factor depending on the account flow. This server supports password or pre-provisioned login token, re-login after expiry, and distinct ADS-proxied instance sessions. Interactive WebAuthn/OIDC browser flows are not suitable for unattended startup.

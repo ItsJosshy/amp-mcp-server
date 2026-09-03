@@ -83,15 +83,24 @@ export class Amp2HttpClient {
 
   private async loginInstance(instanceId: string): Promise<Session> {
     const controller = await this.getControllerSession();
+    const grantResult = await this.request("API/ADSModule/ManageInstance", { InstanceId: instanceId }, controller, false, { ampModule: "ADSModule", ampMethod: "ManageInstance", instanceId });
+    const grant = grantResult !== null && typeof grantResult === "object" ? grantResult as Record<string, unknown> : {};
+    const granted = grant.Status ?? grant.status;
+    const token = grant.Result ?? grant.result;
+    if (granted !== true || typeof token !== "string" || token.length < 8) {
+      const reason = [grant.Reason, grant.reason].find((value) => value !== undefined && value !== null && String(value).trim().length > 0);
+      throw new AmpError("AMP_AUTHENTICATION_FAILED", reason === undefined ? "AMP did not grant access to the managed instance" : String(reason), { instanceId, retryable: false });
+    }
     const endpoint = `API/ADSModule/Servers/${encodeURIComponent(instanceId)}/API/Core/Login`;
-    const result = await this.request(endpoint, this.loginPayload(), controller, false, { ampModule: "Core", ampMethod: "Login", instanceId });
+    const result = await this.request(endpoint, { username: this.config.username, password: "", token, rememberMe: false }, undefined, false, { ampModule: "Core", ampMethod: "Login", instanceId });
     const session = this.parseLogin(result);
     this.instanceSessions.set(instanceId, session);
     return session;
   }
 
   private loginPayload(): Record<string, unknown> {
-    return { username: this.config.username, password: this.config.loginToken ? "" : this.config.password, token: this.config.loginToken, rememberMe: false };
+    const token = normalizeLoginToken(this.config.username, this.config.loginToken);
+    return { username: this.config.username, password: token ? "" : this.config.password, token, rememberMe: false };
   }
 
   private parseLogin(value: unknown): Session {
@@ -99,8 +108,8 @@ export class Amp2HttpClient {
     const success = obj.success ?? obj.Success;
     const id = obj.sessionID ?? obj.sessionId ?? obj.SessionID;
     if (success !== true || typeof id !== "string" || id.length < 8) {
-      const reason = obj.resultReason ?? obj.reason ?? obj.Message ?? "AMP rejected the login";
-      throw new AmpError("AMP_AUTHENTICATION_FAILED", String(reason), { retryable: false });
+      const reason = [obj.resultReason, obj.reason, obj.Message].find((value) => value !== undefined && value !== null && String(value).trim().length > 0);
+      throw new AmpError("AMP_AUTHENTICATION_FAILED", reason === undefined ? "AMP rejected the login" : String(reason), { retryable: false });
     }
     const mode = this.config.authMode === "legacy-session-body" ? "legacy-session-body" : "bearer";
     return { id, mode };
@@ -160,4 +169,10 @@ function httpError(status: number, statusText: string, body: unknown, context: o
   if (status === 403) return new AmpError("AMP_PERMISSION_DENIED", message, { ...context, status });
   if (status === 408 || status === 429 || status >= 500) return new AmpError("AMP_CONNECTION_FAILED", message, { ...context, status, retryable: true });
   return new AmpError("AMP_INVALID_PARAMETERS", message, { ...context, status });
+}
+
+function normalizeLoginToken(username: string, token: string): string {
+  const separator = token.indexOf(":");
+  if (separator <= 0 || token.slice(0, separator).toLowerCase() !== username.toLowerCase()) return token;
+  return token.slice(separator + 1);
 }
